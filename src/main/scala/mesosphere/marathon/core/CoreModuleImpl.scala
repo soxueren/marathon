@@ -1,17 +1,16 @@
 package mesosphere.marathon
 package core
 
-import akka.actor.Cancellable
-import akka.stream.scaladsl.Source
 import java.time.Clock
 import java.util.concurrent.Executors
 
-import javax.inject.Named
-import akka.actor.{ActorRef, ActorSystem}
+import akka.actor.{ActorRef, ActorSystem, Cancellable}
 import akka.event.EventStream
+import akka.stream.scaladsl.Source
 import com.google.inject.{Inject, Provider}
 import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.StrictLogging
+import javax.inject.Named
 import mesosphere.marathon.core.auth.AuthModule
 import mesosphere.marathon.core.base.{ActorsModule, CrashStrategy, LifecycleState}
 import mesosphere.marathon.core.deployment.DeploymentModule
@@ -33,10 +32,12 @@ import mesosphere.marathon.core.plugin.PluginModule
 import mesosphere.marathon.core.pod.PodModule
 import mesosphere.marathon.core.readiness.ReadinessModule
 import mesosphere.marathon.core.storage.store.impl.zk.RichCuratorFramework
+import mesosphere.marathon.core.storage.zookeeper.{AsyncCuratorBuilderFactory, ZooKeeperPersistenceStore}
 import mesosphere.marathon.core.task.jobs.TaskJobsModule
 import mesosphere.marathon.core.task.termination.TaskTerminationModule
 import mesosphere.marathon.core.task.tracker.InstanceTrackerModule
 import mesosphere.marathon.core.task.update.TaskStatusUpdateProcessor
+import mesosphere.marathon.experimental.repository.TemplateRepository
 import mesosphere.marathon.storage.{StorageConf, StorageConfig, StorageModule}
 import mesosphere.marathon.stream.EnrichedFlow
 import mesosphere.util.NamedExecutionContext
@@ -75,8 +76,7 @@ class CoreModuleImpl @Inject() (
 
   override lazy val config = ConfigFactory.load()
 
-  // Initialize Apache Curator Framework (wrapped in [[RichCuratorFramework]] and connect/sync with the storage
-  // for an underlying Zookeeper storage.
+  // Initialize Apache Curator Framework (wrapped in [[RichCuratorFramework]] and connect/sync with the underlying Zookeeper storage.
   lazy val richCuratorFramework: RichCuratorFramework = StorageConfig.curatorFramework(marathonConf, crashStrategy, lifecycleState)
 
   override lazy val metricsModule = MetricsModule(marathonConf)
@@ -93,11 +93,15 @@ class CoreModuleImpl @Inject() (
   )
 
   // TASKS
-  val storageExecutionContext = NamedExecutionContext.fixedThreadPoolExecutionContext(marathonConf.asInstanceOf[StorageConf].storageExecutionContextSize(), "storage-module")
+  val storageExecutionContext: ExecutionContext = NamedExecutionContext.fixedThreadPoolExecutionContext(marathonConf.asInstanceOf[StorageConf].storageExecutionContextSize(), "storage-module")
   override lazy val instanceTrackerModule =
     new InstanceTrackerModule(metricsModule.metrics, clock, marathonConf, leadershipModule,
       storageModule.instanceRepository, storageModule.groupRepository, instanceUpdateSteps)(actorsModule.materializer)
   override lazy val taskJobsModule = new TaskJobsModule(marathonConf, leadershipModule, clock)
+
+  lazy val factory: AsyncCuratorBuilderFactory = AsyncCuratorBuilderFactory(richCuratorFramework.client)
+  lazy val store: ZooKeeperPersistenceStore = new ZooKeeperPersistenceStore(metricsModule.metrics, factory, parallelism = 1)(storageExecutionContext)
+  override lazy val templateRepository: TemplateRepository = new TemplateRepository(store, base = "/templates")(actorsModule.materializer)
 
   override lazy val storageModule = StorageModule(
     metricsModule.metrics,

@@ -64,6 +64,9 @@ class MarathonRestModule() extends AbstractModule {
     bind(classOf[CacheDisablingFilter]).asEagerSingleton()
     bind(classOf[WebJarServlet]).in(Scopes.SINGLETON)
     bind(classOf[PublicServlet]).in(Scopes.SINGLETON)
+
+    // Experimental V3 API
+    bind(classOf[v3.TemplatesResource]).in(Scopes.SINGLETON)
   }
 
   @Provides
@@ -86,11 +89,12 @@ class MarathonRestModule() extends AbstractModule {
     leaderResource: v2.LeaderResource,
     deploymentsResource: v2.DeploymentsResource,
     pluginsResource: v2.PluginsResource,
+    templatesResource: v3.TemplatesResource,
     deprecatedFeaturesSet: DeprecatedFeatureSet): RootApplication = {
 
     new RootApplication(
       Seq(marathonExceptionMapper),
       List(systemResource, appsResource, podsResource, tasksResource, queueResource, groupsResource,
-        infoResource, leaderResource, deploymentsResource, pluginsResource))
+        infoResource, leaderResource, deploymentsResource, pluginsResource, templatesResource))
   }
 }
