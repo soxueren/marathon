@@ -16,6 +16,7 @@ import mesosphere.marathon.util.ZookeeperServerTest
 import mesosphere.{AkkaIntegrationTest, WhenEnvSet}
 import mesosphere.marathon.integration.setup._
 import mesosphere.marathon.io.IO
+import mesosphere.marathon.raml.{AppUpdate, Network, NetworkMode, PortDefinition}
 import mesosphere.marathon.state.{PathId, PersistentVolume, PersistentVolumeInfo, VolumeMount}
 import org.apache.commons.io.FileUtils
 import org.scalatest.concurrent.Eventually
@@ -275,6 +276,43 @@ class UpgradeIntegrationTest extends AkkaIntegrationTest with MesosClusterTest w
     eventually { marathonCurrent should have(runningTasksFor(app_16322_fail.id.toPath, 1)) }
 
     marathonCurrent.close()
+  }
+
+  "upgrade a reserved instance from 1.6.322 to the latest" in {
+    val zkUrl = s"$zkURLBase-reserved-to-latest"
+    val marathon16322 = Marathon16322(marathon16322Artifact.marathonPackage, suiteName = s"$suiteName-1-6-322", mesosMasterUrl, zkUrl)
+
+    // Start apps in 1.6.322
+    Given("A Marathon 1.6.322 is running")
+    marathon16322.start().futureValue
+    (marathon16322.client.info.entityJson \ "version").as[String] should be("1.6.322")
+
+    And("an app that writes into a persistent volume")
+    val containerPath = "persistent-volume"
+    val app_16322_id = testBasePath / "app-16322-reserved"
+    val cmd = s"""echo hello >> $containerPath/data && ${appMockCmd(app_16322_id, "v1")}"""
+    val healthCheck = appProxyHealthCheck().copy(path = Some("/ping"))
+    val app_16322 = residentApp(
+      id = app_16322_id,
+      containerPath = containerPath,
+      cmd = cmd,
+      instances = 2,
+      portDefinitions = Seq(PortDefinition(name = Some("http")))
+    ).copy(
+        networks = Seq(Network(mode = NetworkMode.Host)), backoffSeconds = 1, healthChecks = Set(healthCheck)
+      )
+
+    marathon16322.client.createAppV2(app_16322) should be(Created)
+
+    patienceConfig
+    eventually { marathon16322 should have (runningTasksFor(app_16322_id, 2)) }
+
+    And("one instance is in reserved state")
+    val update = AppUpdate(instances = Some(1))
+    marathon16322.client.updateApp(app_16322_id, update) should be(OK)
+    eventually {
+      marathon16322.client.tasks(app_16322_id).value.map(_.state) should contain("Reserved")
+    }
   }
 
   /**
