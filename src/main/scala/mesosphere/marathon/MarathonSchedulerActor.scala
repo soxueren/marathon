@@ -424,8 +424,13 @@ class SchedulerActions(
               else instanceTracker.setGoal(i.instanceId, Goal.Decommissioned)
             }
 
+            logger.info("waiting for the changeGoalsFuture")
             await(Future.sequence(changeGoalsFuture))
-            await(killService.killInstances(instances, KillReason.OverCapacity))
+            logger.info(s"waiting for the killService.killInstances(${instances.map(i => i.instanceId -> i.state)}, KillReason.OverCapacity)")
+
+            val res = await(killService.killInstances(instances, KillReason.OverCapacity, wipe = false))
+            logger.info(s"waiting for the killService.killInstances - done")
+            res
           }
 
           killInstances(instances)

@@ -42,8 +42,7 @@ class TaskKiller @Inject() (
 
           if (wipe) {
             await(Future.sequence(foundInstances.map(i => instanceTracker.setGoal(i.instanceId, Goal.Decommissioned)))): @silent
-            await(expunge(foundInstances)): @silent
-            await(killService.killInstances(activeInstances, KillReason.KillingTasksViaApi)): @silent
+            await(killService.killInstances(activeInstances, KillReason.KillingTasksViaApi, wipe)): @silent
           } else {
             if (activeInstances.nonEmpty) {
               // This is legit. We don't adjust the goal, since that should stay whatever it is.

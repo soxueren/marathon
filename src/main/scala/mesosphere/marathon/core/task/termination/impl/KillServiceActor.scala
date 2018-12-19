@@ -82,8 +82,8 @@ private[impl] class KillServiceActor(
     case KillUnknownTaskById(taskId) =>
       killUnknownTaskById(taskId)
 
-    case KillInstances(instances, promise) =>
-      killInstances(instances, Some(promise))
+    case KillInstances(instances, promise, wipe) =>
+      killInstances(instances, Some(promise), wipe)
 
     case KillInstancesAndForget(instances) =>
       killInstances(instances, None)
@@ -107,7 +107,7 @@ private[impl] class KillServiceActor(
     }
   }
 
-  def killInstances(instances: Seq[Instance], maybePromise: Option[Promise[Done]]): Unit = {
+  def killInstances(instances: Seq[Instance], maybePromise: Option[Promise[Done]], wipe: Boolean = false): Unit = {
     val instanceIds = instances.map(_.instanceId)
     logger.debug(s"Adding instances $instanceIds to the queue")
     maybePromise.map(p => p.completeWith(watchForKilledInstances(instances)))
@@ -119,7 +119,7 @@ private[impl] class KillServiceActor(
         val taskIds: IndexedSeq[Id] = instance.tasksMap.values.withFilter(!_.isTerminal).map(_.taskId)(collection.breakOut)
         instancesToKill.update(
           instance.instanceId,
-          ToKill(instance.instanceId, taskIds, maybeInstance = Some(instance), attempts = 0)
+          ToKill(instance.instanceId, taskIds, maybeInstance = Some(instance), attempts = 0, wipe = wipe)
         )
       }
     processKills()
@@ -156,7 +156,7 @@ private[impl] class KillServiceActor(
     val instanceId = toKill.instanceId
     val taskIds = toKill.taskIdsToKill
 
-    KillAction(toKill.instanceId, toKill.taskIdsToKill, toKill.maybeInstance) match {
+    KillAction(toKill.instanceId, toKill.taskIdsToKill, toKill.maybeInstance, toKill.wipe) match {
       case KillAction.Noop =>
         ()
 
@@ -201,7 +201,7 @@ private[impl] class KillServiceActor(
 private[termination] object KillServiceActor {
 
   sealed trait Request extends InternalRequest
-  case class KillInstances(instances: Seq[Instance], promise: Promise[Done]) extends Request
+  case class KillInstances(instances: Seq[Instance], promise: Promise[Done], wipe: Boolean = false) extends Request
   case class KillUnknownTaskById(taskId: Task.Id) extends Request
   case class KillInstancesAndForget(instances: Seq[Instance]) extends Request
 
@@ -230,7 +230,8 @@ private[termination] object KillServiceActor {
       taskIdsToKill: Seq[Task.Id],
       maybeInstance: Option[Instance],
       attempts: Int,
-      issued: Timestamp = Timestamp.zero)
+      issued: Timestamp = Timestamp.zero,
+      wipe: Boolean = false)
 }
 
 /**

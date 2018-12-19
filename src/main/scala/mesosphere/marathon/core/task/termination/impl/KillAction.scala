@@ -60,7 +60,7 @@ private[termination] object KillAction extends StrictLogging {
     *
     * any other case -> issue a kill request
     */
-  def apply(instanceId: Instance.Id, taskIds: Iterable[Task.Id], knownInstance: Option[Instance]): KillAction = {
+  def apply(instanceId: Instance.Id, taskIds: Iterable[Task.Id], knownInstance: Option[Instance], wipe: Boolean): KillAction = {
     val hasReservations = knownInstance.fold(false)(_.hasReservation)
 
     // TODO(PODS): align this with other Terminal/Unreachable/whatever extractors
@@ -75,8 +75,13 @@ private[termination] object KillAction extends StrictLogging {
       val msg = if (isUnkillable) s"its condition is ${maybeCondition.fold("unknown")(_.toString)}"
       else "none of its tasks are running"
       if (hasReservations) {
-        logger.info(s"Ignoring kill request for $instanceId; killing it while $msg is unsupported")
-        KillAction.Noop
+        if (wipe) {
+          logger.warn(s"Expunging $instanceId from state because wipe = true")
+          KillAction.ExpungeFromState
+        } else {
+          logger.info(s"Ignoring kill request for $instanceId; killing it while $msg is unsupported")
+          KillAction.Noop
+        }
       } else {
         logger.warn(s"Expunging $instanceId from state because $msg")
         // we will eventually be notified of a taskStatusUpdate after the instance has been expunged

@@ -12,7 +12,7 @@ import mesosphere.marathon.test.SettableClock
 import mesosphere.marathon.core.condition.Condition
 import mesosphere.marathon.core.event.{InstanceChanged, UnknownInstanceTerminated}
 import mesosphere.marathon.core.instance.update.InstanceChange
-import mesosphere.marathon.core.instance.{Instance, TestInstanceBuilder}
+import mesosphere.marathon.core.instance.{Instance, Reservation, TestInstanceBuilder}
 import mesosphere.marathon.core.pod.MesosContainer
 import mesosphere.marathon.core.task.Task
 import mesosphere.marathon.core.task.bus.TaskStatusUpdateTestHelper
@@ -306,6 +306,38 @@ class KillServiceActorTest extends AkkaUnitTest with StrictLogging {
         verify(f.instanceTracker, timeout(f.killConfig.killRetryTimeout.toMillis.toInt)).forceExpunge(instance.instanceId)
       }
     }
+
+    "an instance is unreachable, has reserved tasks and kill with wipe is issued" should {
+      "issue no kill to the driver because the task is unreachable and send an expunge" in withActor(defaultConfig) { (f, actor) =>
+
+        val instance = f.mockReservedInstance(f.runSpecId, f.now(), mesos.Protos.TaskState.TASK_UNREACHABLE)
+        val promise = Promise[Done]()
+        actor ! KillServiceActor.KillInstances(Seq(instance), promise, true)
+
+        noMoreInteractions(f.driver)
+        verify(f.instanceTracker, timeout(f.killConfig.killRetryTimeout.toMillis.toInt * 2)).forceExpunge(instance.instanceId)
+
+        f.publishInstanceChanged(TaskStatusUpdateTestHelper.killed(instance).wrapped)
+
+        promise.future.futureValue should be(Done)
+      }
+    }
+
+    "an instance is unreachable, has reserved tasks and kill without wipe is issued" should {
+      "issue no kill to the driver because the task is unreachable and not send an expunge" in withActor(defaultConfig) { (f, actor) =>
+
+        val instance = f.mockReservedInstance(f.runSpecId, f.now(), mesos.Protos.TaskState.TASK_UNREACHABLE)
+        val promise = Promise[Done]()
+        actor ! KillServiceActor.KillInstances(Seq(instance), promise, false)
+
+        noMoreInteractions(f.driver)
+        verify(f.instanceTracker, never).forceExpunge(instance.instanceId)
+
+        f.publishInstanceChanged(TaskStatusUpdateTestHelper.killed(instance).wrapped)
+
+        promise.future.futureValue should be(Done)
+      }
+    }
   }
 
   def withActor(killConfig: KillConfig)(testCode: (Fixture, ActorRef) => Any): Unit = {
@@ -338,6 +370,15 @@ class KillServiceActorTest extends AkkaUnitTest with StrictLogging {
 
     def mockInstance(appId: PathId, stagedAt: Timestamp, mesosState: mesos.Protos.TaskState): Instance = {
       TestInstanceBuilder.newBuilder(appId).addTaskWithBuilder().taskForStatus(mesosState, stagedAt).build().getInstance()
+    }
+
+    def mockReservedInstance(appId: PathId, stagedAt: Timestamp, mesosState: mesos.Protos.TaskState): Instance = {
+      TestInstanceBuilder.newBuilder(appId)
+        .withReservation(Reservation.State.New(None))
+        .addTaskWithBuilder()
+        .taskForStatus(mesosState, stagedAt)
+        .build()
+        .getInstance()
     }
 
     def publishInstanceChanged(instanceChange: InstanceChange): Unit = {

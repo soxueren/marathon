@@ -27,18 +27,17 @@ class KillActionTest extends UnitTest with TableDrivenPropertyChecks {
   "computeKillAction" when {
     Table(
       ("name", "instance", "expected"),
-      ("an unreachable reserved instance", residentUnreachableInstance, KillAction.Noop),
-      ("a running reserved instance", residentLaunchedInstance, KillAction.IssueKillRequest),
-      ("an unreachable ephemeral instance", unreachableInstance, KillAction.ExpungeFromState),
-      ("a running ephemeral instance", runningInstance, KillAction.IssueKillRequest)
+      ("an unreachable reserved instance", (residentUnreachableInstance, false), KillAction.Noop),
+      ("an unreachable reserved instance with wipe", (residentUnreachableInstance, true), KillAction.ExpungeFromState),
+      ("a running reserved instance", (residentLaunchedInstance, false), KillAction.IssueKillRequest),
+      ("an unreachable ephemeral instance", (unreachableInstance, false), KillAction.ExpungeFromState),
+      ("a running ephemeral instance", (runningInstance, false), KillAction.IssueKillRequest)
     ).
       foreach {
-        case (name, instance, expected) =>
+        case (name, (instance, wipe), expected) =>
           s"killing ${name}" should {
             s"result in ${expected}" in {
-              KillAction(
-                instance.instanceId, instance.tasksMap.keys, Some(instance)).
-                shouldBe(expected)
+              KillAction(instance.instanceId, instance.tasksMap.keys, Some(instance), wipe).shouldBe(expected)
             }
           }
       }

@@ -26,7 +26,7 @@ class KillServiceMock(system: ActorSystem) extends KillService with Mockito {
   val eventsGenerator = InstanceChangedEventsGenerator
   val clock = new SettableClock()
 
-  override def killInstances(instances: Seq[Instance], reason: KillReason): Future[Done] = {
+  override def killInstances(instances: Seq[Instance], reason: KillReason, wipe: Boolean = false): Future[Done] = {
     instances.foreach { instance =>
       killInstance(instance, reason)
     }

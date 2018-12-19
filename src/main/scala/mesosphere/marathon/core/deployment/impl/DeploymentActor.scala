@@ -144,7 +144,7 @@ private class DeploymentActor(
       else instanceTracker.setGoal(i.instanceId, Goal.Decommissioned)
     })
     await(Future.sequence(changeGoalsFuture))
-    await(killService.killInstances(instancesToKill, KillReason.DeploymentScaling))
+    await(killService.killInstances(instancesToKill, KillReason.DeploymentScaling, wipe = false))
   }
 
   def scaleRunnable(runnableSpec: RunSpec, scaleTo: Int,
@@ -189,7 +189,7 @@ private class DeploymentActor(
 
     logger.info(s"Killing all instances of ${runSpec.id}: ${instances.map(_.instanceId)}")
     await(Future.sequence(instances.map(i => instanceTracker.setGoal(i.instanceId, Goal.Decommissioned))))
-    await(killService.killInstances(instances, KillReason.DeletingApp))
+    await(killService.killInstances(instances, KillReason.DeletingApp, wipe = false))
 
     launchQueue.resetDelay(runSpec)
 

@@ -20,7 +20,7 @@ trait KillService {
     * @param reason the reason why the task shall be killed.
     * @return a future that is completed when all tasks are killed.
     */
-  def killInstances(instances: Seq[Instance], reason: KillReason): Future[Done]
+  def killInstances(instances: Seq[Instance], reason: KillReason, wipe: Boolean): Future[Done]
 
   /**
     * Kill the given instance. The implementation should add the task onto

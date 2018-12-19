@@ -134,7 +134,7 @@ class TaskKillerTest extends UnitTest {
       val instancesToKill = Seq(runningInstance, reservedInstance)
       val launchedInstances = Seq(runningInstance)
 
-      when(f.killService.killInstances(launchedInstances, KillReason.KillingTasksViaApi)).thenReturn(Future.successful(Done))
+      when(f.killService.killInstances(launchedInstances, KillReason.KillingTasksViaApi, true)).thenReturn(Future.successful(Done))
       when(f.groupManager.runSpec(appId)).thenReturn(Some(AppDefinition(appId)))
       when(f.tracker.specInstances(appId)).thenReturn(Future.successful(instancesToKill))
       when(f.tracker.forceExpunge(runningInstance.instanceId)).thenReturn(Future.successful(Done))
@@ -146,10 +146,8 @@ class TaskKillerTest extends UnitTest {
       }, wipe = true)
       result.futureValue shouldEqual instancesToKill
       // only task1 is killed
-      verify(f.killService, times(1)).killInstances(launchedInstances, KillReason.KillingTasksViaApi)
-      // all found instances are expunged and the launched instance is eventually expunged again
-      verify(f.tracker, atLeastOnce).forceExpunge(runningInstance.instanceId)
-      verify(f.tracker).forceExpunge(reservedInstance.instanceId)
+      // all found instances are expunged and the launched instance is eventually expunged again, but it happens in the KillServiceActor
+      verify(f.killService, times(1)).killInstances(launchedInstances, KillReason.KillingTasksViaApi, true)
     }
   }
 

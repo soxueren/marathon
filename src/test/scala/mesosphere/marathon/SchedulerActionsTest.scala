@@ -179,7 +179,7 @@ class SchedulerActionsTest extends AkkaUnitTest {
       verify(f.queue, times(1)).purge(app.id)
 
       And("the youngest STAGED tasks are killed")
-      verify(f.killService, withinTimeout()).killInstances(List(staged_3, staged_2), KillReason.OverCapacity)
+      verify(f.killService, withinTimeout()).killInstances(List(staged_3, staged_2), KillReason.OverCapacity, false)
       verifyNoMoreInteractions(f.driver)
       verifyNoMoreInteractions(f.killService)
     }
@@ -217,7 +217,7 @@ class SchedulerActionsTest extends AkkaUnitTest {
       verify(f.queue, times(1)).purge(app.id)
 
       And("the youngest RUNNING tasks are killed")
-      verify(f.killService, withinTimeout()).killInstances(List(running_7, running_6), KillReason.OverCapacity)
+      verify(f.killService, withinTimeout()).killInstances(List(running_7, running_6), KillReason.OverCapacity, false)
       verifyNoMoreInteractions(f.driver)
       verifyNoMoreInteractions(f.killService)
     }
@@ -259,7 +259,7 @@ class SchedulerActionsTest extends AkkaUnitTest {
       verify(f.queue, times(1)).purge(app.id)
 
       And("all STAGED tasks plus the youngest RUNNING tasks are killed")
-      verify(f.killService, withinTimeout()).killInstances(List(staged_1, running_4), KillReason.OverCapacity)
+      verify(f.killService, withinTimeout()).killInstances(List(staged_1, running_4), KillReason.OverCapacity, false)
       verifyNoMoreInteractions(f.driver)
       verifyNoMoreInteractions(f.killService)
     }
