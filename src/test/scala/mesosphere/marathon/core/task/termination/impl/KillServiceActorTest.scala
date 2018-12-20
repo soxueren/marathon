@@ -45,7 +45,7 @@ class KillServiceActorTest extends AkkaUnitTest with StrictLogging {
 
     "asked to kill a single known instance" should {
       "issue a kill to the driver" in withActor(defaultConfig) { (f, actor) =>
-        val instance = f.mockInstance(f.runSpecId, f.now(), mesos.Protos.TaskState.TASK_RUNNING)
+        val instance = f.createInstance(f.runSpecId, f.now(), mesos.Protos.TaskState.TASK_RUNNING)
 
         val promise = Promise[Done]()
         actor ! KillServiceActor.KillInstances(Seq(instance), promise)
@@ -75,7 +75,7 @@ class KillServiceActorTest extends AkkaUnitTest with StrictLogging {
     "asked to kill single known unreachable instance" should {
       "issue no kill to the driver because the task is unreachable and send an expunge" in withActor(defaultConfig) { (f, actor) =>
 
-        val instance = f.mockInstance(f.runSpecId, f.now(), mesos.Protos.TaskState.TASK_UNREACHABLE)
+        val instance = f.createInstance(f.runSpecId, f.now(), mesos.Protos.TaskState.TASK_UNREACHABLE)
         val promise = Promise[Done]()
         actor ! KillServiceActor.KillInstances(Seq(instance), promise)
 
@@ -90,9 +90,9 @@ class KillServiceActorTest extends AkkaUnitTest with StrictLogging {
 
     "asked to kill multiple instances at once" should {
       "issue three kill requests to the driver" in withActor(defaultConfig) { (f, actor) =>
-        val runningInstance = f.mockInstance(f.runSpecId, f.clock.now(), mesos.Protos.TaskState.TASK_RUNNING)
-        val unreachableInstance = f.mockInstance(f.runSpecId, f.clock.now(), mesos.Protos.TaskState.TASK_UNREACHABLE)
-        val stagingInstance = f.mockInstance(f.runSpecId, f.clock.now(), mesos.Protos.TaskState.TASK_STAGING)
+        val runningInstance = f.createInstance(f.runSpecId, f.clock.now(), mesos.Protos.TaskState.TASK_RUNNING)
+        val unreachableInstance = f.createInstance(f.runSpecId, f.clock.now(), mesos.Protos.TaskState.TASK_UNREACHABLE)
+        val stagingInstance = f.createInstance(f.runSpecId, f.clock.now(), mesos.Protos.TaskState.TASK_STAGING)
 
         val promise = Promise[Done]()
         actor ! KillServiceActor.KillInstances(Seq(runningInstance, unreachableInstance, stagingInstance), promise)
@@ -127,9 +127,9 @@ class KillServiceActorTest extends AkkaUnitTest with StrictLogging {
 
     "asked to kill multiple instances subsequently" should {
       "issue exactly 3 kills to the driver and complete the future successfully" in withActor(defaultConfig) { (f, actor) =>
-        val instance1 = f.mockInstance(f.runSpecId, f.clock.now(), mesos.Protos.TaskState.TASK_RUNNING)
-        val instance2 = f.mockInstance(f.runSpecId, f.clock.now(), mesos.Protos.TaskState.TASK_RUNNING)
-        val instance3 = f.mockInstance(f.runSpecId, f.clock.now(), mesos.Protos.TaskState.TASK_RUNNING)
+        val instance1 = f.createInstance(f.runSpecId, f.clock.now(), mesos.Protos.TaskState.TASK_RUNNING)
+        val instance2 = f.createInstance(f.runSpecId, f.clock.now(), mesos.Protos.TaskState.TASK_RUNNING)
+        val instance3 = f.createInstance(f.runSpecId, f.clock.now(), mesos.Protos.TaskState.TASK_RUNNING)
 
         val promise1 = Promise[Done]()
         val promise2 = Promise[Done]()
@@ -160,7 +160,7 @@ class KillServiceActorTest extends AkkaUnitTest with StrictLogging {
     "killing instances is throttled (single requests)" should {
       "issue 5 kills immediately to the driver" in withActor(defaultConfig) { (f, actor) =>
         val instances: Map[Instance.Id, Instance] = (1 to 10).map { index =>
-          val instance = f.mockInstance(f.runSpecId, f.clock.now(), mesos.Protos.TaskState.TASK_RUNNING)
+          val instance = f.createInstance(f.runSpecId, f.clock.now(), mesos.Protos.TaskState.TASK_RUNNING)
           instance.instanceId -> instance
         }(collection.breakOut)
 
@@ -188,7 +188,7 @@ class KillServiceActorTest extends AkkaUnitTest with StrictLogging {
       "issue 5 kills immediately to the driver" in withActor(defaultConfig) { (f, actor) =>
 
         val instances: Map[Instance.Id, Instance] = (1 to 10).map { index =>
-          val instance = f.mockInstance(f.runSpecId, f.clock.now(), mesos.Protos.TaskState.TASK_RUNNING)
+          val instance = f.createInstance(f.runSpecId, f.clock.now(), mesos.Protos.TaskState.TASK_RUNNING)
           instance.instanceId -> instance
         }(collection.breakOut)
 
@@ -213,7 +213,7 @@ class KillServiceActorTest extends AkkaUnitTest with StrictLogging {
 
     "killing with retry will be retried" should {
       "issue a kill to the driver an eventually retry" in withActor(retryConfig) { (f, actor) =>
-        val instance = f.mockInstance(f.runSpecId, f.clock.now(), mesos.Protos.TaskState.TASK_RUNNING)
+        val instance = f.createInstance(f.runSpecId, f.clock.now(), mesos.Protos.TaskState.TASK_RUNNING)
         val promise = Promise[Done]()
 
         actor ! KillServiceActor.KillInstances(Seq(instance), promise)
@@ -310,7 +310,7 @@ class KillServiceActorTest extends AkkaUnitTest with StrictLogging {
     "an instance is unreachable, has reserved tasks and kill with wipe is issued" should {
       "issue no kill to the driver because the task is unreachable and send an expunge" in withActor(defaultConfig) { (f, actor) =>
 
-        val instance = f.mockReservedInstance(f.runSpecId, f.now(), mesos.Protos.TaskState.TASK_UNREACHABLE)
+        val instance = f.createReservedInstance(f.runSpecId, f.now(), mesos.Protos.TaskState.TASK_UNREACHABLE)
         val promise = Promise[Done]()
         actor ! KillServiceActor.KillInstances(Seq(instance), promise, true)
 
@@ -326,7 +326,7 @@ class KillServiceActorTest extends AkkaUnitTest with StrictLogging {
     "an instance is unreachable, has reserved tasks and kill without wipe is issued" should {
       "issue no kill to the driver because the task is unreachable and not send an expunge" in withActor(defaultConfig) { (f, actor) =>
 
-        val instance = f.mockReservedInstance(f.runSpecId, f.now(), mesos.Protos.TaskState.TASK_UNREACHABLE)
+        val instance = f.createReservedInstance(f.runSpecId, f.now(), mesos.Protos.TaskState.TASK_UNREACHABLE)
         val promise = Promise[Done]()
         actor ! KillServiceActor.KillInstances(Seq(instance), promise, false)
 
@@ -368,11 +368,11 @@ class KillServiceActorTest extends AkkaUnitTest with StrictLogging {
     val clock = new SettableClock()
     val metrics: Metrics = DummyMetrics
 
-    def mockInstance(appId: PathId, stagedAt: Timestamp, mesosState: mesos.Protos.TaskState): Instance = {
+    def createInstance(appId: PathId, stagedAt: Timestamp, mesosState: mesos.Protos.TaskState): Instance = {
       TestInstanceBuilder.newBuilder(appId).addTaskWithBuilder().taskForStatus(mesosState, stagedAt).build().getInstance()
     }
 
-    def mockReservedInstance(appId: PathId, stagedAt: Timestamp, mesosState: mesos.Protos.TaskState): Instance = {
+    def createReservedInstance(appId: PathId, stagedAt: Timestamp, mesosState: mesos.Protos.TaskState): Instance = {
       TestInstanceBuilder.newBuilder(appId)
         .withReservation(Reservation.State.New(None))
         .addTaskWithBuilder()
